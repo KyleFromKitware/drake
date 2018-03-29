@@ -51,7 +51,7 @@ Argument:
 
 load("@drake//tools/workspace:os.bzl", "determine_os")
 
-VTK_MAJOR_MINOR_VERSION = "8.0"
+VTK_MAJOR_MINOR_VERSION = "9.0"
 
 def _vtk_cc_library(os_name, name, hdrs = None, visibility = None, deps = None,
                     header_only = False, linkopts = []):
@@ -84,7 +84,9 @@ def _vtk_cc_library(os_name, name, hdrs = None, visibility = None, deps = None,
             ]
     else:
         if not header_only:
-            srcs = ["lib/lib{}-{}.so.1".format(name, VTK_MAJOR_MINOR_VERSION)]
+            linkopts = linkopts + [
+                "-l{}-{}".format(name, VTK_MAJOR_MINOR_VERSION),
+            ]
 
     content = """
 cc_library(
@@ -109,20 +111,7 @@ def _impl(repository_ctx):
         repository_ctx.symlink("/usr/local/opt/vtk@{}/include".format(
             VTK_MAJOR_MINOR_VERSION), "include")
     elif os_result.is_ubuntu:
-        if os_result.ubuntu_release == "16.04":
-            archive = "vtk-v8.0.1-qt-5.5.1-xenial-x86_64-1.tar.gz"
-            sha256 = "d6cb1b8cfe8d8b9abe400c39267954cbba5b12d4ff550d42a1fe695d3e01dc40"  # noqa
-        else:
-            fail("Operating system is NOT supported", attr = os_result)
-
-        urls = [
-            x.format(archive = archive)
-            for x in repository_ctx.attr.mirrors.get("vtk")
-        ]
-        root_path = repository_ctx.path("")
-
-        repository_ctx.download_and_extract(urls, root_path, sha256 = sha256)
-
+        repository_ctx.symlink("/usr/include", "include")
     else:
         fail("Operating system is NOT supported", attr = os_result)
 
@@ -537,7 +526,7 @@ licenses([
 
     # Segmentation faults with system versions of GLEW on Ubuntu 16.04.
     if repository_ctx.os.name == "linux":
-        VTKGLEW = ":vtkglew"
+        VTKGLEW = "@glew"
     else:
         VTKGLEW = "@glew"
 
@@ -597,7 +586,7 @@ filegroup(
         files_to_install = []
     else:
         # Install all files.
-        files_to_install = [":vtk"]
+        files_to_install = []
 
     file_content += """
 load("@drake//tools/install:install.bzl", "install_files")
